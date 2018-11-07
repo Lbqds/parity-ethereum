@@ -44,7 +44,7 @@ pub struct TendermintParams {
 /// Tendermint engine deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Tendermint {
-	/// Ethash params.
+	/// Tendermint params.
 	pub params: TendermintParams,
 }
 

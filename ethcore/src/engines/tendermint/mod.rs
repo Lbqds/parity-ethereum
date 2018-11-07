@@ -50,6 +50,7 @@ use super::vote_collector::VoteCollector;
 use self::message::*;
 use self::params::TendermintParams;
 use machine::{AuxiliaryData, EthereumMachine};
+use bytes::ToPretty;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Step {
@@ -735,6 +736,7 @@ impl Engine<EthereumMachine> for Tendermint {
 					// Report the proposer if no proposal was received.
 					let height = self.height.load(AtomicOrdering::SeqCst);
 					let current_proposer = self.view_proposer(&*self.proposal_parent.read(), height, self.view.load(AtomicOrdering::SeqCst));
+					trace!(target: "engine", "Proposer: {:?}", current_proposer.to_hex());
 					self.validators.report_benign(&current_proposer, height as BlockNumber, height as BlockNumber);
 				}
 				Step::Prevote

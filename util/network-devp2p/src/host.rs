@@ -272,19 +272,25 @@ impl Host {
 		};
 
 		let keys = if let Some(ref secret) = config.use_secret {
+			trace!(target: "network", "Use default secret key");
 			KeyPair::from_secret(secret.clone())?
 		} else {
 			config.config_path.clone().and_then(|ref p| load_key(Path::new(&p)))
 				.map_or_else(|| {
+				trace!(target: "network", "Random generate secret");
 				let key = Random.generate().expect("Error generating random key pair");
 				if let Some(path) = config.config_path.clone() {
 					save_key(Path::new(&path), key.secret());
 				}
 				key
 			},
-			|s| KeyPair::from_secret(s).expect("Error creating node secret key"))
+			|s| {
+				trace!(target: "network", "Load secret from {:?}", config.config_path);
+				KeyPair::from_secret(s).expect("Error creating node secret key")
+			})
 		};
 		let path = config.net_config_path.clone();
+		trace!(target: "network", "Path: {:?}", path);
 		// Setup the server socket
 		let tcp_listener = TcpListener::bind(&listen_address)?;
 		listen_address = SocketAddr::new(listen_address.ip(), tcp_listener.local_addr()?.port());
