@@ -39,6 +39,7 @@ pub trait NotifyWork : Send + Sync {
 	fn notify(&self, pow_hash: H256, difficulty: U256, number: u64);
 }
 
+// TODO: remove WorkPoster
 /// POSTs info about new work to given urls.
 pub struct WorkPoster {
 	urls: Vec<Url>,

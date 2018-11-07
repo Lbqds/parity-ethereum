@@ -125,8 +125,7 @@ mod test {
 	fn node_filter() {
 		let contract_addr = "0000000000000000000000000000000000000005".into();
 		let data = include_bytes!("../res/node_filter.json");
-		let tempdir = TempDir::new("").unwrap();
-		let spec = Spec::load(&tempdir.path(), &data[..]).unwrap();
+		let spec = Spec::load(&data[..]).unwrap();
 		let client_db = test_helpers::new_db();
 
 		let client = Client::new(

@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use ethcore::client::Mode;
 use ethcore::ethereum;
-use ethcore::spec::{Spec, SpecParams};
+use ethcore::spec::Spec;
 use ethereum_types::{U256, Address};
 use parity_runtime::Executor;
 use hash_fetch::fetch::Client as FetchClient;
@@ -105,27 +105,26 @@ impl fmt::Display for SpecType {
 }
 
 impl SpecType {
-	pub fn spec<'a, T: Into<SpecParams<'a>>>(&self, params: T) -> Result<Spec, String> {
-		let params = params.into();
+	pub fn spec(&self) -> Result<Spec, String> {
 		match *self {
-			SpecType::Foundation => Ok(ethereum::new_foundation(params)),
-			SpecType::Classic => Ok(ethereum::new_classic(params)),
-			SpecType::Poanet => Ok(ethereum::new_poanet(params)),
-			SpecType::Tobalaba => Ok(ethereum::new_tobalaba(params)),
-			SpecType::Expanse => Ok(ethereum::new_expanse(params)),
-			SpecType::Musicoin => Ok(ethereum::new_musicoin(params)),
-			SpecType::Ellaism => Ok(ethereum::new_ellaism(params)),
-			SpecType::Easthub => Ok(ethereum::new_easthub(params)),
-			SpecType::Social => Ok(ethereum::new_social(params)),
-			SpecType::Callisto => Ok(ethereum::new_callisto(params)),
-			SpecType::Morden => Ok(ethereum::new_morden(params)),
-			SpecType::Ropsten => Ok(ethereum::new_ropsten(params)),
-			SpecType::Kovan => Ok(ethereum::new_kovan(params)),
-			SpecType::Sokol => Ok(ethereum::new_sokol(params)),
+			SpecType::Foundation => Ok(ethereum::new_foundation()),
+			SpecType::Classic => Ok(ethereum::new_classic()),
+			SpecType::Poanet => Ok(ethereum::new_poanet()),
+			SpecType::Tobalaba => Ok(ethereum::new_tobalaba()),
+			SpecType::Expanse => Ok(ethereum::new_expanse()),
+			SpecType::Musicoin => Ok(ethereum::new_musicoin()),
+			SpecType::Ellaism => Ok(ethereum::new_ellaism()),
+			SpecType::Easthub => Ok(ethereum::new_easthub()),
+			SpecType::Social => Ok(ethereum::new_social()),
+			SpecType::Callisto => Ok(ethereum::new_callisto()),
+			SpecType::Morden => Ok(ethereum::new_morden()),
+			SpecType::Ropsten => Ok(ethereum::new_ropsten()),
+			SpecType::Kovan => Ok(ethereum::new_kovan()),
+			SpecType::Sokol => Ok(ethereum::new_sokol()),
 			SpecType::Dev => Ok(Spec::new_instant()),
 			SpecType::Custom(ref filename) => {
 				let file = fs::File::open(filename).map_err(|e| format!("Could not load specification file at {}: {}", filename, e))?;
-				Spec::load(params, file)
+				Spec::load(file)
 			}
 		}
 	}

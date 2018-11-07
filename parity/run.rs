@@ -26,13 +26,11 @@ use ethcore::client::{BlockId, CallContract, Client, Mode, DatabaseCompactionPro
 use ethcore::ethstore::ethkey;
 use ethcore::miner::{stratum, Miner, MinerService, MinerOptions};
 use ethcore::snapshot::{self, SnapshotConfiguration};
-use ethcore::spec::{SpecParams, OptimizeFor};
 use ethcore::verification::queue::VerifierSettings;
 use ethcore_logger::{Config as LogConfig, RotatingLogger};
 use ethcore_service::ClientService;
 use ethereum_types::Address;
 use sync::{self, SyncConfig};
-use miner::work_notify::WorkPoster;
 use futures::IntoFuture;
 use hash_fetch::{self, fetch};
 use informant::{Informant, LightNodeInformantData, FullNodeInformantData};
@@ -169,7 +167,7 @@ fn execute_light_impl(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<Runnin
 	use parking_lot::{Mutex, RwLock};
 
 	// load spec
-	let spec = cmd.spec.spec(SpecParams::new(cmd.dirs.cache.as_ref(), OptimizeFor::Memory))?;
+	let spec = cmd.spec.spec()?;
 
 	// load genesis hash
 	let genesis_hash = spec.genesis_header().hash();
@@ -361,7 +359,7 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 		Rr: Fn() + 'static + Send
 {
 	// load spec
-	let spec = cmd.spec.spec(&cmd.dirs.cache)?;
+	let spec = cmd.spec.spec()?;
 
 	// load genesis hash
 	let genesis_hash = spec.genesis_header().hash();
@@ -488,11 +486,7 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 	miner.set_gas_range_target(cmd.miner_extras.gas_range_target);
 	miner.set_extra_data(cmd.miner_extras.extra_data);
 
-	if !cmd.miner_extras.work_notify.is_empty() {
-		miner.add_work_listener(Box::new(
-			WorkPoster::new(&cmd.miner_extras.work_notify, fetch.clone(), runtime.executor())
-		));
-	}
+	// TODO: remove cmd.miner._extras.work_notify arg
 
 	let engine_signer = cmd.miner_extras.engine_signer;
 	if engine_signer != Default::default() {
@@ -621,11 +615,7 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 	// create external miner
 	let external_miner = Arc::new(ExternalMiner::default());
 
-	// start stratum
-	if let Some(ref stratum_config) = cmd.stratum {
-		stratum::Stratum::register(stratum_config, miner.clone(), Arc::downgrade(&client))
-			.map_err(|e| format!("Stratum start error: {:?}", e))?;
-	}
+	// TODO: remove cmd.stratum arg
 
 	let mut attached_protos = Vec::new();
 

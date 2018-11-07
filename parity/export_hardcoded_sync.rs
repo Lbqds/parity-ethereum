@@ -18,7 +18,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ethcore::client::DatabaseCompactionProfile;
-use ethcore::spec::{SpecParams, OptimizeFor};
 use light::client::fetch::Unavailable as UnavailableDataFetcher;
 use light::Cache as LightDataCache;
 
@@ -47,7 +46,7 @@ pub fn execute(cmd: ExportHsyncCmd) -> Result<String, String> {
 	use parking_lot::Mutex;
 
 	// load spec
-	let spec = cmd.spec.spec(SpecParams::new(cmd.dirs.cache.as_ref(), OptimizeFor::Memory))?;
+	let spec = cmd.spec.spec()?;
 
 	// load genesis hash
 	let genesis_hash = spec.genesis_header().hash();

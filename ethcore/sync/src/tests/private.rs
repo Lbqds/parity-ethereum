@@ -34,7 +34,7 @@ use SyncConfig;
 
 fn seal_spec() -> Spec {
 	let spec_data = include_str!("../res/private_spec.json");
-	Spec::load(&::std::env::temp_dir(), spec_data.as_bytes()).unwrap()
+	Spec::load(spec_data.as_bytes()).unwrap()
 }
 
 #[test]

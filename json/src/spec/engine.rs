@@ -16,7 +16,7 @@
 
 //! Engine deserialization.
 
-use super::{Ethash, BasicAuthority, AuthorityRound, Tendermint, NullEngine, InstantSeal};
+use super::{BasicAuthority, AuthorityRound, Tendermint, NullEngine, InstantSeal};
 
 /// Engine deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
@@ -27,8 +27,6 @@ pub enum Engine {
 	/// Instantly sealing engine.
 	#[serde(rename="instantSeal")]
 	InstantSeal(Option<InstantSeal>),
-	/// Ethash engine.
-	Ethash(Ethash),
 	/// BasicAuthority engine.
 	#[serde(rename="basicAuthority")]
 	BasicAuthority(BasicAuthority),
@@ -78,28 +76,6 @@ mod tests {
 		let deserialized: Engine = serde_json::from_str(s).unwrap();
 		match deserialized {
 			Engine::InstantSeal(_) => {},	// instant seal is unit tested in its own file.
-			_ => panic!(),
-		};
-
-
-		let s = r#"{
-			"Ethash": {
-				"params": {
-					"minimumDifficulty": "0x020000",
-					"difficultyBoundDivisor": "0x0800",
-					"durationLimit": "0x0d",
-					"registrar" : "0xc6d9d2cd449a754c494264e1809c50e34d64562b",
-					"homesteadTransition" : "0x",
-					"daoHardforkTransition": "0xffffffffffffffff",
-					"daoHardforkBeneficiary": "0x0000000000000000000000000000000000000000",
-					"daoHardforkAccounts": []
-				}
-			}
-		}"#;
-
-		let deserialized: Engine = serde_json::from_str(s).unwrap();
-		match deserialized {
-			Engine::Ethash(_) => {},	// ethash is unit tested in its own file.
 			_ => panic!(),
 		};
 

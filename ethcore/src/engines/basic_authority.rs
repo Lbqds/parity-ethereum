@@ -223,8 +223,7 @@ mod tests {
 	/// Create a new test chain spec with `BasicAuthority` consensus engine.
 	fn new_test_authority() -> Spec {
 		let bytes: &[u8] = include_bytes!("../../res/basic_authority.json");
-		let tempdir = TempDir::new("").unwrap();
-		Spec::load(&tempdir.path(), bytes).expect("invalid chain spec")
+		Spec::load(bytes).expect("invalid chain spec")
 	}
 
 	#[test]

@@ -18,7 +18,6 @@
 
 use std::collections::BTreeMap;
 use std::io::Read;
-use std::path::Path;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -331,43 +330,6 @@ impl From<ethjson::spec::Params> for CommonParams {
 	}
 }
 
-/// Runtime parameters for the spec that are related to how the software should run the chain,
-/// rather than integral properties of the chain itself.
-#[derive(Debug, Clone, Copy)]
-pub struct SpecParams<'a> {
-	/// The path to the folder used to cache nodes. This is typically /tmp/ on Unix-like systems
-	pub cache_dir: &'a Path,
-	/// Whether to run slower at the expense of better memory usage, or run faster while using
-	/// more
-	/// memory. This may get more fine-grained in the future but for now is simply a binary
-	/// option.
-	pub optimization_setting: Option<OptimizeFor>,
-}
-
-impl<'a> SpecParams<'a> {
-	/// Create from a cache path, with null values for the other fields
-	pub fn from_path(path: &'a Path) -> Self {
-		SpecParams {
-			cache_dir: path,
-			optimization_setting: None,
-		}
-	}
-
-	/// Create from a cache path and an optimization setting
-	pub fn new(path: &'a Path, optimization: OptimizeFor) -> Self {
-		SpecParams {
-			cache_dir: path,
-			optimization_setting: Some(optimization),
-		}
-	}
-}
-
-impl<'a, T: AsRef<Path>> From<&'a T> for SpecParams<'a> {
-	fn from(path: &'a T) -> Self {
-		Self::from_path(path.as_ref())
-	}
-}
-
 /// Parameters for a block chain; includes both those intrinsic to the design of the
 /// chain and those to be interpreted by the active chain engine.
 pub struct Spec {
@@ -484,11 +446,11 @@ fn load_machine_from(s: ethjson::spec::Spec) -> EthereumMachine {
 	let builtins = s.accounts.builtins().into_iter().map(|p| (p.0.into(), From::from(p.1))).collect();
 	let params = CommonParams::from(s.params);
 
-	Spec::machine(&s.engine, params, builtins)
+	Spec::machine(params, builtins)
 }
 
 /// Load from JSON object.
-fn load_from(spec_params: SpecParams, s: ethjson::spec::Spec) -> Result<Spec, Error> {
+fn load_from(s: ethjson::spec::Spec) -> Result<Spec, Error> {
 	let builtins = s.accounts
 		.builtins()
 		.into_iter()
@@ -517,7 +479,7 @@ fn load_from(spec_params: SpecParams, s: ethjson::spec::Spec) -> Result<Spec, Er
 
 	let mut s = Spec {
 		name: s.name.clone().into(),
-		engine: Spec::engine(spec_params, s.engine, params, builtins),
+		engine: Spec::engine(s.engine, params, builtins),
 		data_dir: s.data_dir.unwrap_or(s.name).into(),
 		nodes: s.nodes.unwrap_or_else(Vec::new),
 		parent_hash: g.parent_hash,
@@ -557,7 +519,6 @@ fn load_from(spec_params: SpecParams, s: ethjson::spec::Spec) -> Result<Spec, Er
 macro_rules! load_bundled {
 	($e:expr) => {
 		Spec::load(
-			&::std::env::temp_dir(),
 			include_bytes!(concat!("../../res/", $e, ".json")) as &[u8]
 		).expect(concat!("Chain spec ", $e, " is invalid."))
 	};
@@ -575,30 +536,23 @@ macro_rules! load_machine_bundled {
 impl Spec {
 	// create an instance of an Ethereum state machine, minus consensus logic.
 	fn machine(
-		engine_spec: &ethjson::spec::Engine,
 		params: CommonParams,
 		builtins: BTreeMap<Address, Builtin>,
 	) -> EthereumMachine {
-		if let ethjson::spec::Engine::Ethash(ref ethash) = *engine_spec {
-			EthereumMachine::with_ethash_extensions(params, builtins, ethash.params.clone().into())
-		} else {
-			EthereumMachine::regular(params, builtins)
-		}
+		EthereumMachine::regular(params, builtins)
 	}
 
 	/// Convert engine spec into a arc'd Engine of the right underlying type.
 	/// TODO avoid this hard-coded nastiness - use dynamic-linked plugin framework instead.
 	fn engine(
-		spec_params: SpecParams,
 		engine_spec: ethjson::spec::Engine,
 		params: CommonParams,
 		builtins: BTreeMap<Address, Builtin>,
 	) -> Arc<EthEngine> {
-		let machine = Self::machine(&engine_spec, params, builtins);
+		let machine = Self::machine(params, builtins);
 
 		match engine_spec {
 			ethjson::spec::Engine::Null(null) => Arc::new(NullEngine::new(null.params.into(), machine)),
-			ethjson::spec::Engine::Ethash(ethash) => Arc::new(::ethereum::Ethash::new(spec_params.cache_dir, ethash.params.into(), machine, spec_params.optimization_setting)),
 			ethjson::spec::Engine::InstantSeal(Some(instant_seal)) => Arc::new(InstantSeal::new(instant_seal.params.into(), machine)),
 			ethjson::spec::Engine::InstantSeal(None) => Arc::new(InstantSeal::new(InstantSealParams::default(), machine)),
 			ethjson::spec::Engine::BasicAuthority(basic_authority) => Arc::new(BasicAuthority::new(basic_authority.params.into(), machine)),
@@ -825,13 +779,13 @@ impl Spec {
 
 	/// Loads spec from json file. Provide factories for executing contracts and ensuring
 	/// storage goes to the right place.
-	pub fn load<'a, T: Into<SpecParams<'a>>, R>(params: T, reader: R) -> Result<Self, String>
+	pub fn load<R>(reader: R) -> Result<Self, String>
 	where
 		R: Read,
 	{
 		ethjson::spec::Spec::load(reader).map_err(fmt_err).and_then(
 			|x| {
-				load_from(params.into(), x).map_err(fmt_err)
+				load_from(x).map_err(fmt_err)
 			},
 		)
 	}
@@ -1002,8 +956,7 @@ mod tests {
 	// https://github.com/paritytech/parity-ethereum/issues/1840
 	#[test]
 	fn test_load_empty() {
-		let tempdir = TempDir::new("").unwrap();
-		assert!(Spec::load(&tempdir.path(), &[] as &[u8]).is_err());
+		assert!(Spec::load(&[] as &[u8]).is_err());
 	}
 
 	#[test]

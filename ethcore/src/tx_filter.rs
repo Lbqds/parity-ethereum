@@ -159,8 +159,7 @@ mod test {
 		let spec_data = include_str!("../res/tx_permission_tests/contract_ver_2_genesis.json");
 
 		let db = test_helpers::new_db();
-		let tempdir = TempDir::new("").unwrap();
-		let spec = Spec::load(&tempdir.path(), spec_data.as_bytes()).unwrap();
+		let spec = Spec::load(spec_data.as_bytes()).unwrap();
 
 		let client = Client::new(
 			ClientConfig::default(),
@@ -238,8 +237,7 @@ mod test {
 		let spec_data = include_str!("../res/tx_permission_tests/deprecated_contract_genesis.json");
 
 		let db = test_helpers::new_db();
-		let tempdir = TempDir::new("").unwrap();
-		let spec = Spec::load(&tempdir.path(), spec_data.as_bytes()).unwrap();
+		let spec = Spec::load(spec_data.as_bytes()).unwrap();
 
 		let client = Client::new(
 			ClientConfig::default(),

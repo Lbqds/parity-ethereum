@@ -198,8 +198,7 @@ pub mod tests {
 		params.code = Some(Arc::new(code.from_hex().unwrap()));
 		params.gas = gas.into();
 
-		let tempdir = TempDir::new("").unwrap();
-		let spec = ::ethcore::ethereum::new_foundation(&tempdir.path());
+		let spec = ::ethcore::ethereum::new_foundation();
 		let result = run_action(&spec, params, informant);
 		match result {
 			Ok(Success { traces, .. }) => {
@@ -220,7 +219,7 @@ pub mod tests {
 		params.code_address = 0x20.into();
 		params.gas = 0xffff.into();
 
-		let spec = ::ethcore::ethereum::load(None, include_bytes!("../res/testchain.json"));
+		let spec = ::ethcore::ethereum::load(include_bytes!("../res/testchain.json"));
 		let _result = run_action(&spec, params, inf);
 
 		assert_eq!(

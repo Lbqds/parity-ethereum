@@ -25,8 +25,6 @@ use engines::{EthEngine, Seal};
 use error::{Error, ErrorKind, ExecutionError};
 use ethcore_miner::gas_pricer::GasPricer;
 use ethcore_miner::pool::{self, TransactionQueue, VerifiedTransaction, QueueStatus, PrioritizationStrategy};
-#[cfg(feature = "work-notify")]
-use ethcore_miner::work_notify::NotifyWork;
 use ethereum_types::{H256, U256, Address};
 use io::IoChannel;
 use parking_lot::{Mutex, RwLock};
@@ -215,8 +213,6 @@ pub struct Miner {
 	// NOTE [ToDr]  When locking always lock in this order!
 	sealing: Mutex<SealingWork>,
 	params: RwLock<AuthoringParams>,
-	#[cfg(feature = "work-notify")]
-	listeners: RwLock<Vec<Box<NotifyWork>>>,
 	nonce_cache: NonceCache,
 	gas_pricer: Mutex<GasPricer>,
 	options: MinerOptions,
@@ -228,13 +224,6 @@ pub struct Miner {
 }
 
 impl Miner {
-	/// Push listener that will handle new jobs
-	#[cfg(feature = "work-notify")]
-	pub fn add_work_listener(&self, notifier: Box<NotifyWork>) {
-		self.listeners.write().push(notifier);
-		self.sealing.lock().enabled = true;
-	}
-
 	/// Set a callback to be notified about imported transactions' hashes.
 	pub fn add_transactions_listener(&self, f: Box<Fn(&[H256]) + Send + Sync>) {
 		self.transaction_queue.add_listener(f);
@@ -262,8 +251,6 @@ impl Miner {
 				last_request: None,
 			}),
 			params: RwLock::new(AuthoringParams::default()),
-			#[cfg(feature = "work-notify")]
-			listeners: RwLock::new(vec![]),
 			gas_pricer: Mutex::new(gas_pricer),
 			nonce_cache: NonceCache::new(nonce_cache_size),
 			options,
@@ -550,14 +537,7 @@ impl Miner {
 	/// 1. --force-sealing CLI parameter is provided
 	/// 2. There are listeners awaiting new work packages (e.g. remote work notifications or stratum).
 	fn forced_sealing(&self) -> bool {
-		let listeners_empty = {
-			#[cfg(feature = "work-notify")]
-			{ self.listeners.read().is_empty() }
-			#[cfg(not(feature = "work-notify"))]
-			{ true }
-		};
-
-		self.options.force_sealing || !listeners_empty
+		self.options.force_sealing
 	}
 
 	/// Check is reseal is allowed and necessary.
@@ -683,66 +663,35 @@ impl Miner {
 
 	/// Prepares work which has to be done to seal.
 	fn prepare_work(&self, block: ClosedBlock, original_work_hash: Option<H256>) {
-		let (work, is_new) = {
-			let block_header = block.block().header().clone();
-			let block_hash = block_header.hash();
+		let block_header = block.block().header().clone();
+		let block_hash = block_header.hash();
 
-			let mut sealing = self.sealing.lock();
-			let last_work_hash = sealing.queue.peek_last_ref().map(|pb| pb.block().header().hash());
+		let mut sealing = self.sealing.lock();
+		let last_work_hash = sealing.queue.peek_last_ref().map(|pb| pb.block().header().hash());
 
+		trace!(
+			target: "miner",
+			"prepare_work: Checking whether we need to reseal: orig={:?} last={:?}, this={:?}",
+			original_work_hash, last_work_hash, block_hash
+		);
+
+		if last_work_hash.map_or(true, |h| h != block_hash) {
 			trace!(
 				target: "miner",
-				"prepare_work: Checking whether we need to reseal: orig={:?} last={:?}, this={:?}",
-				original_work_hash, last_work_hash, block_hash
+				"prepare_work: Pushing a new, refreshed or borrowed pending {}...",
+				block_hash
 			);
-
-			let (work, is_new) = if last_work_hash.map_or(true, |h| h != block_hash) {
-				trace!(
-					target: "miner",
-					"prepare_work: Pushing a new, refreshed or borrowed pending {}...",
-					block_hash
-				);
-				let is_new = original_work_hash.map_or(true, |h| h != block_hash);
-
-				sealing.queue.set_pending(block);
-
-				#[cfg(feature = "work-notify")]
-				{
-					// If push notifications are enabled we assume all work items are used.
-					if is_new && !self.listeners.read().is_empty() {
-						sealing.queue.use_last_ref();
-					}
-				}
-
-				(Some((block_hash, *block_header.difficulty(), block_header.number())), is_new)
-			} else {
-				(None, false)
-			};
-			trace!(
-				target: "miner",
-				"prepare_work: leaving (last={:?})",
-				sealing.queue.peek_last_ref().map(|b| b.block().header().hash())
-			);
-			(work, is_new)
+			let is_new = original_work_hash.map_or(true, |h| h != block_hash);
+			sealing.queue.set_pending(block);
+			(Some((block_hash, *block_header.difficulty(), block_header.number())), is_new)
+		} else {
+			(None, false)
 		};
-
-		#[cfg(feature = "work-notify")]
-		{
-			if is_new {
-				work.map(|(pow_hash, difficulty, number)| {
-					for notifier in self.listeners.read().iter() {
-						notifier.notify(pow_hash, difficulty, number)
-					}
-				});
-			}
-		}
-
-		// NB: hack to use variables to avoid warning.
-		#[cfg(not(feature = "work-notify"))]
-		{
-			let _work = work;
-			let _is_new = is_new;
-		}
+		trace!(
+			target: "miner",
+			"prepare_work: leaving (last={:?})",
+			sealing.queue.peek_last_ref().map(|b| b.block().header().hash())
+		);
 	}
 
 	/// Prepare a pending block. Returns the preparation status.
@@ -1557,24 +1506,5 @@ mod tests {
 		miner.update_sealing(&*client);
 
 		assert!(!miner.is_currently_sealing());
-	}
-
-	#[cfg(feature = "work-notify")]
-	#[test]
-	fn should_mine_if_fetch_work_request() {
-		struct DummyNotifyWork;
-
-		impl NotifyWork for DummyNotifyWork {
-			fn notify(&self, _pow_hash: H256, _difficulty: U256, _number: u64) { }
-		}
-
-		let spec = Spec::new_test();
-		let miner = Miner::new_for_tests(&spec, None);
-		miner.add_work_listener(Box::new(DummyNotifyWork));
-
-		let client = generate_dummy_client(2);
-		miner.update_sealing(&*client);
-
-		assert!(miner.is_currently_sealing());
 	}
 }
