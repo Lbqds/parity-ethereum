@@ -309,7 +309,7 @@ usage! {
 		["Convenience Options"]
 			FLAG flag_unsafe_expose: (bool) = false, or |c: &Config| c.misc.as_ref()?.unsafe_expose,
 			"--unsafe-expose",
-			"All servers will listen on external interfaces and will be remotely accessible. It's equivalent with setting the following: --[ws,jsonrpc,ui,ipfs-api,secretstore,stratum,dapps,secretstore-http]-interface=all --*-hosts=all    This option is UNSAFE and should be used with great care!",
+			"All servers will listen on external interfaces and will be remotely accessible. It's equivalent with setting the following: --[ws,jsonrpc,ui,ipfs-api,secretstore,dapps,secretstore-http]-interface=all --*-hosts=all    This option is UNSAFE and should be used with great care!",
 
 			ARG arg_config: (String) = "$BASE/config.toml", or |_| None,
 			"-c, --config=[CONFIG]",
@@ -677,10 +677,6 @@ usage! {
 			"--no-persistent-txqueue",
 			"Don't save pending local transactions to disk to be restored whenever the node restarts.",
 
-			FLAG flag_stratum: (bool) = false, or |c: &Config| Some(c.stratum.is_some()),
-			"--stratum",
-			"Run Stratum server for miner push notification.",
-
 			ARG arg_reseal_on_txs: (String) = "own", or |c: &Config| c.mining.as_ref()?.reseal_on_txs.clone(),
 			"--reseal-on-txs=[SET]",
 			"Specify which transactions should force the node to reseal a block. SET is one of: none - never reseal on new transactions; own - reseal only on a new local transaction; ext - reseal only on a new external transaction; all - reseal on all new transactions.",
@@ -737,14 +733,6 @@ usage! {
 			"--tx-queue-strategy=[S]",
 			"Prioritization strategy used to order transactions in the queue. S may be: gas_price - Prioritize txs with high gas price",
 
-			ARG arg_stratum_interface: (String) = "local", or |c: &Config| c.stratum.as_ref()?.interface.clone(),
-			"--stratum-interface=[IP]",
-			"Interface address for Stratum server.",
-
-			ARG arg_stratum_port: (u16) = 8008u16, or |c: &Config| c.stratum.as_ref()?.port.clone(),
-			"--stratum-port=[PORT]",
-			"Port for Stratum server to listen on.",
-
 			ARG arg_min_gas_price: (Option<u64>) = None, or |c: &Config| c.mining.as_ref()?.min_gas_price.clone(),
 			"--min-gas-price=[STRING]",
 			"Minimum amount of Wei per GAS to be paid for a transaction to be accepted for mining. Overrides --usd-per-tx.",
@@ -776,14 +764,6 @@ usage! {
 			ARG arg_extra_data: (Option<String>) = None, or |c: &Config| c.mining.as_ref()?.extra_data.clone(),
 			"--extra-data=[STRING]",
 			"Specify a custom extra-data for authored blocks, no more than 32 characters.",
-
-			ARG arg_notify_work: (Option<String>) = None, or |c: &Config| c.mining.as_ref()?.notify_work.as_ref().map(|vec| vec.join(",")),
-			"--notify-work=[URLS]",
-			"URLs to which work package notifications are pushed. URLS should be a comma-delimited list of HTTP URLs.",
-
-			ARG arg_stratum_secret: (Option<String>) = None, or |c: &Config| c.stratum.as_ref()?.secret.clone(),
-			"--stratum-secret=[STRING]",
-			"Secret for authorizing Stratum server for peers.",
 
 			ARG arg_max_round_blocks_to_import: (usize) = 12usize, or |c: &Config| c.mining.as_ref()?.max_round_blocks_to_import.clone(),
 			"--max-round-blocks-to-import=[S]",
@@ -1115,7 +1095,6 @@ struct Config {
 	footprint: Option<Footprint>,
 	snapshots: Option<Snapshots>,
 	misc: Option<Misc>,
-	stratum: Option<Stratum>,
 	whisper: Option<Whisper>,
 	light: Option<Light>,
 }
@@ -1327,18 +1306,9 @@ struct Mining {
 	tx_queue_no_unfamiliar_locals: Option<bool>,
 	tx_queue_no_early_reject: Option<bool>,
 	remove_solved: Option<bool>,
-	notify_work: Option<Vec<String>>,
 	refuse_service_transactions: Option<bool>,
 	infinite_pending_block: Option<bool>,
 	max_round_blocks_to_import: Option<usize>,
-}
-
-#[derive(Default, Debug, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Stratum {
-	interface: Option<String>,
-	port: Option<u16>,
-	secret: Option<String>,
 }
 
 #[derive(Default, Debug, PartialEq, Deserialize)]
@@ -1760,15 +1730,9 @@ mod tests {
 			arg_tx_queue_ban_count: Some(1u16),
 			arg_tx_queue_ban_time: Some(180u16),
 			flag_remove_solved: false,
-			arg_notify_work: Some("http://localhost:3001".into()),
 			flag_refuse_service_transactions: false,
 			flag_infinite_pending_block: false,
 			arg_max_round_blocks_to_import: 12usize,
-
-			flag_stratum: false,
-			arg_stratum_interface: "local".to_owned(),
-			arg_stratum_port: 8008u16,
-			arg_stratum_secret: None,
 
 			// -- Footprint Options
 			arg_tracing: "auto".into(),
@@ -2032,7 +1996,6 @@ mod tests {
 				tx_time_limit: None,
 				extra_data: None,
 				remove_solved: None,
-				notify_work: None,
 				refuse_service_transactions: None,
 				infinite_pending_block: None,
 				max_round_blocks_to_import: None,
@@ -2072,7 +2035,6 @@ mod tests {
 				enabled: Some(true),
 				pool_size: Some(50),
 			}),
-			stratum: None,
 		});
 	}
 

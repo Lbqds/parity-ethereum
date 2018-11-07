@@ -22,14 +22,14 @@ use std::collections::BTreeMap;
 use std::cmp;
 use cli::{Args, ArgsError};
 use hash::keccak;
-use ethereum_types::{U256, H256, Address};
+use ethereum_types::{U256, Address};
 use parity_version::{version_data, version};
 use bytes::Bytes;
 use ansi_term::Colour;
 use sync::{NetworkConfiguration, validate_node_url, self};
 use ethcore::ethstore::ethkey::{Secret, Public};
 use ethcore::client::{VMType};
-use ethcore::miner::{stratum, MinerOptions};
+use ethcore::miner::MinerOptions;
 use ethcore::snapshot::SnapshotConfiguration;
 use ethcore::verification::queue::VerifierSettings;
 use miner::pool;
@@ -367,7 +367,6 @@ impl Configuration {
 				acc_conf: self.accounts_config()?,
 				gas_pricer_conf: self.gas_pricer_config()?,
 				miner_extras: self.miner_extras()?,
-				stratum: self.stratum_options()?,
 				update_policy: update_policy,
 				mode: mode,
 				tracing: tracing,
@@ -418,7 +417,6 @@ impl Configuration {
 			extra_data: self.extra_data()?,
 			gas_range_target: (floor, ceil),
 			engine_signer: self.engine_signer()?,
-			work_notify: self.work_notify(),
 		};
 
 		Ok(extras)
@@ -498,10 +496,6 @@ impl Configuration {
 		self.args.arg_snapshot_peers as u32
 	}
 
-	fn work_notify(&self) -> Vec<String> {
-		self.args.arg_notify_work.as_ref().map_or_else(Vec::new, |s| s.split(',').map(|s| s.to_owned()).collect())
-	}
-
 	fn accounts_config(&self) -> Result<AccountsConfig, String> {
 		let cfg = AccountsConfig {
 			iterations: self.args.arg_keys_iterations,
@@ -514,17 +508,6 @@ impl Configuration {
 		};
 
 		Ok(cfg)
-	}
-
-	fn stratum_options(&self) -> Result<Option<stratum::Options>, String> {
-		if self.args.flag_stratum {
-			Ok(Some(stratum::Options {
-				io_path: self.directories().db,
-				listen_addr: self.stratum_interface(),
-				port: self.args.arg_ports_shift + self.args.arg_stratum_port,
-				secret: self.args.arg_stratum_secret.as_ref().map(|s| s.parse::<H256>().unwrap_or_else(|_| keccak(s))),
-			}))
-		} else { Ok(None) }
 	}
 
 	fn miner_options(&self) -> Result<MinerOptions, String> {
@@ -1075,10 +1058,6 @@ impl Configuration {
 		Ok(nodes)
 	}
 
-	fn stratum_interface(&self) -> String {
-		self.interface(&self.args.arg_stratum_interface)
-	}
-
 	fn rpc_enabled(&self) -> bool {
 		!self.args.flag_jsonrpc_off && !self.args.flag_no_jsonrpc
 	}
@@ -1428,7 +1407,6 @@ mod tests {
 			custom_bootnodes: false,
 			fat_db: Default::default(),
 			snapshot_conf: Default::default(),
-			stratum: None,
 			check_seal: true,
 			download_old_blocks: true,
 			verifier_settings: Default::default(),
@@ -1779,7 +1757,7 @@ mod tests {
 		// given
 
 		// when
-		let conf0 = parse(&["parity", "--ports-shift", "1", "--stratum"]);
+		let conf0 = parse(&["parity", "--ports-shift", "1"]);
 		let conf1 = parse(&["parity", "--ports-shift", "1", "--jsonrpc-port", "8544"]);
 
 		// then
@@ -1791,7 +1769,6 @@ mod tests {
 		assert_eq!(conf0.secretstore_config().unwrap().port, 8084);
 		assert_eq!(conf0.secretstore_config().unwrap().http_port, 8083);
 		assert_eq!(conf0.ipfs_config().port, 5002);
-		assert_eq!(conf0.stratum_options().unwrap().unwrap().port, 8009);
 
 		assert_eq!(conf1.net_addresses().unwrap().0.port(), 30304);
 		assert_eq!(conf1.network_settings().unwrap().network_port, 30304);

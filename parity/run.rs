@@ -24,7 +24,7 @@ use bytes::Bytes;
 use ethcore::account_provider::{AccountProvider, AccountProviderSettings};
 use ethcore::client::{BlockId, CallContract, Client, Mode, DatabaseCompactionProfile, VMType, BlockChainClient, BlockInfo};
 use ethcore::ethstore::ethkey;
-use ethcore::miner::{stratum, Miner, MinerService, MinerOptions};
+use ethcore::miner::{Miner, MinerService, MinerOptions};
 use ethcore::snapshot::{self, SnapshotConfiguration};
 use ethcore::verification::queue::VerifierSettings;
 use ethcore_logger::{Config as LogConfig, RotatingLogger};
@@ -121,7 +121,6 @@ pub struct RunCmd {
 	pub private_tx_enabled: bool,
 	pub name: String,
 	pub custom_bootnodes: bool,
-	pub stratum: Option<stratum::Options>,
 	pub snapshot_conf: SnapshotConfiguration,
 	pub check_seal: bool,
 	pub download_old_blocks: bool,
@@ -486,8 +485,6 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 	miner.set_gas_range_target(cmd.miner_extras.gas_range_target);
 	miner.set_extra_data(cmd.miner_extras.extra_data);
 
-	// TODO: remove cmd.miner._extras.work_notify arg
-
 	let engine_signer = cmd.miner_extras.engine_signer;
 	if engine_signer != Default::default() {
 		// Check if engine signer exists
@@ -614,8 +611,6 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 
 	// create external miner
 	let external_miner = Arc::new(ExternalMiner::default());
-
-	// TODO: remove cmd.stratum arg
 
 	let mut attached_protos = Vec::new();
 

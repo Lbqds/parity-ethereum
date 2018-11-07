@@ -137,7 +137,6 @@ tx_queue_no_unfamiliar_locals = false
 tx_queue_no_early_reject = false
 extra_data = "Parity"
 remove_solved = false
-notify_work = ["http://localhost:3001"]
 refuse_service_transactions = false
 
 [footprint]

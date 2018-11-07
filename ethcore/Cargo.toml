@@ -25,7 +25,6 @@ error-chain = { version = "0.12", default-features = false }
 ethcore-io = { path = "../util/io" }
 ethcore-logger = { path = "../logger" }
 ethcore-miner = { path = "../miner" }
-ethcore-stratum = { path = "./stratum", optional = true }
 ethcore-transaction = { path = "./transaction" }
 ethereum-types = "0.4"
 memory-cache = { path = "../util/memory_cache" }
@@ -80,12 +79,10 @@ tempdir = "0.3"
 trie-standardmap = "0.1"
 
 [features]
-parity = ["work-notify", "price-info", "stratum"]
+parity = ["price-info"]
 # Large optional features that are enabled by default for Parity,
 # but might be omitted for other dependent crates.
-work-notify = ["ethcore-miner/work-notify"]
 price-info = ["ethcore-miner/price-info"]
-stratum = ["ethcore-stratum"]
 
 # Disables seal verification for mined blocks.
 # This allows you to submit any seal via RPC to test and benchmark

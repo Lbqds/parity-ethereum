@@ -23,8 +23,6 @@ mod miner;
 mod service_transaction_checker;
 
 pub mod pool_client;
-#[cfg(feature = "stratum")]
-pub mod stratum;
 
 pub use self::miner::{Miner, MinerOptions, Penalization, PendingSet, AuthoringParams};
 pub use ethcore_miner::pool::PendingOrdering;
