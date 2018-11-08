@@ -32,7 +32,6 @@ use hash_fetch::fetch::Client as FetchClient;
 use jsonrpc_core::{self as core, MetaIoHandler};
 use light::client::LightChainClient;
 use light::{TransactionQueue as LightTransactionQueue, Cache as LightDataCache};
-use miner::external::ExternalMiner;
 use parity_runtime::Executor;
 use parity_rpc::dispatch::{FullDispatcher, LightDispatcher};
 use parity_rpc::informant::{ActivityNotifier, ClientNotifier};
@@ -222,7 +221,6 @@ pub struct FullDependencies {
 	pub secret_store: Arc<AccountProvider>,
 	pub private_tx_service: Option<Arc<PrivateTxService>>,
 	pub miner: Arc<Miner>,
-	pub external_miner: Arc<ExternalMiner>,
 	pub logger: Arc<RotatingLogger>,
 	pub settings: Arc<NetworkSettings>,
 	pub net_service: Arc<ManageNetwork>,
@@ -284,7 +282,6 @@ impl FullDependencies {
 						&self.sync,
 						&self.secret_store,
 						&self.miner,
-						&self.external_miner,
 						EthClientOptions {
 							pending_nonce_from_queue: self.geth_compatibility,
 							allow_pending_receipt_query: !self.geth_compatibility,

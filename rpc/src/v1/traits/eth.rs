@@ -19,8 +19,8 @@ use jsonrpc_core::{Result, BoxFuture};
 use jsonrpc_macros::Trailing;
 
 use v1::types::{RichBlock, BlockNumber, Bytes, CallRequest, Filter, FilterChanges, Index};
-use v1::types::{Log, Receipt, SyncStatus, Transaction, Work};
-use v1::types::{H64, H160, H256, U256, U64};
+use v1::types::{Log, Receipt, SyncStatus, Transaction};
+use v1::types::{H160, H256, U256, U64};
 
 build_rpc_trait! {
 	/// Eth rpc interface.
@@ -34,10 +34,6 @@ build_rpc_trait! {
 		/// Returns an object with data about the sync status or false. (wtf?)
 		#[rpc(name = "eth_syncing")]
 		fn syncing(&self) -> Result<SyncStatus>;
-
-		/// Returns the number of hashes per second that the node is mining with.
-		#[rpc(name = "eth_hashrate")]
-		fn hashrate(&self) -> Result<U256>;
 
 		/// Returns block author.
 		#[rpc(name = "eth_coinbase")]
@@ -168,18 +164,6 @@ build_rpc_trait! {
 		/// Returns logs matching given filter object.
 		#[rpc(name = "eth_getLogs")]
 		fn logs(&self, Filter) -> BoxFuture<Vec<Log>>;
-
-		/// Returns the hash of the current block, the seedHash, and the boundary condition to be met.
-		#[rpc(name = "eth_getWork")]
-		fn work(&self, Trailing<u64>) -> Result<Work>;
-
-		/// Used for submitting a proof-of-work solution.
-		#[rpc(name = "eth_submitWork")]
-		fn submit_work(&self, H64, H256, H256) -> Result<bool>;
-
-		/// Used for submitting mining hashrate.
-		#[rpc(name = "eth_submitHashrate")]
-		fn submit_hashrate(&self, U256, H256) -> Result<bool>;
 	}
 }
 

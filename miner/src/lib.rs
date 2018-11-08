@@ -47,7 +47,6 @@ extern crate ethkey;
 #[cfg(test)]
 extern crate env_logger;
 
-pub mod external;
 #[cfg(feature = "price-info")]
 pub mod gas_price_calibrator;
 pub mod gas_pricer;

@@ -16,15 +16,11 @@
 
 //! Eth rpc implementation.
 
-use std::thread;
-use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
 use std::sync::Arc;
 
 use rlp::Rlp;
 use ethereum_types::{U256, H256, Address};
-use parking_lot::Mutex;
 
-use ethash::{self, SeedHashCompute};
 use ethcore::account_provider::AccountProvider;
 use ethcore::client::{BlockChainClient, BlockId, TransactionId, UncleId, StateOrBlock, StateClient, StateInfo, Call, EngineInfo};
 use ethcore::filter::Filter as EthcoreFilter;
@@ -33,22 +29,20 @@ use ethcore::miner::{self, MinerService};
 use ethcore::snapshot::SnapshotService;
 use ethcore::encoded;
 use sync::SyncProvider;
-use miner::external::ExternalMinerService;
 use transaction::{SignedTransaction, LocalizedTransaction};
 
 use jsonrpc_core::{BoxFuture, Result};
 use jsonrpc_core::futures::future;
 use jsonrpc_macros::Trailing;
 
-use v1::helpers::{self, errors, limit_logs, fake_sign};
+use v1::helpers::{errors, limit_logs, fake_sign};
 use v1::helpers::dispatch::{FullDispatcher, default_gas_price};
 use v1::helpers::block_import::is_major_importing;
 use v1::traits::Eth;
 use v1::types::{
 	RichBlock, Block, BlockTransactions, BlockNumber, Bytes, SyncStatus, SyncInfo,
-	Transaction, CallRequest, Index, Filter, Log, Receipt, Work,
-	H64 as RpcH64, H256 as RpcH256, H160 as RpcH160, U256 as RpcU256, block_number_to_id,
-	U64 as RpcU64,
+	Transaction, CallRequest, Index, Filter, Log, Receipt, H256 as RpcH256, H160 as RpcH160,
+	U256 as RpcU256, block_number_to_id, U64 as RpcU64
 };
 use v1::metadata::Metadata;
 
@@ -91,20 +85,17 @@ impl Default for EthClientOptions {
 }
 
 /// Eth rpc implementation.
-pub struct EthClient<C, SN: ?Sized, S: ?Sized, M, EM> where
+pub struct EthClient<C, SN: ?Sized, S: ?Sized, M> where
 	C: miner::BlockChainClient + BlockChainClient,
 	SN: SnapshotService,
 	S: SyncProvider,
-	M: MinerService,
-	EM: ExternalMinerService {
+	M: MinerService {
 
 	client: Arc<C>,
 	snapshot: Arc<SN>,
 	sync: Arc<S>,
 	accounts: Arc<AccountProvider>,
 	miner: Arc<M>,
-	external_miner: Arc<EM>,
-	seed_compute: Mutex<SeedHashCompute>,
 	options: EthClientOptions,
 }
 
@@ -141,12 +132,11 @@ enum PendingTransactionId {
 	Location(PendingOrBlock, usize)
 }
 
-impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> EthClient<C, SN, S, M, EM> where
+impl<C, SN: ?Sized, S: ?Sized, M, T: StateInfo + 'static> EthClient<C, SN, S, M> where
 	C: miner::BlockChainClient + BlockChainClient + StateClient<State=T> + Call<State=T> + EngineInfo,
 	SN: SnapshotService,
 	S: SyncProvider,
-	M: MinerService<State=T>,
-	EM: ExternalMinerService {
+	M: MinerService<State=T> {
 
 	/// Creates new EthClient.
 	pub fn new(
@@ -155,7 +145,6 @@ impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> EthClient<C, SN, S
 		sync: &Arc<S>,
 		accounts: &Arc<AccountProvider>,
 		miner: &Arc<M>,
-		em: &Arc<EM>,
 		options: EthClientOptions
 	) -> Self {
 		EthClient {
@@ -164,8 +153,6 @@ impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> EthClient<C, SN, S
 			sync: sync.clone(),
 			miner: miner.clone(),
 			accounts: accounts.clone(),
-			external_miner: em.clone(),
-			seed_compute: Mutex::new(SeedHashCompute::default()),
 			options: options,
 		}
 	}
@@ -450,14 +437,11 @@ fn check_known<C>(client: &C, number: BlockNumber) -> Result<()> where C: BlockC
 	}
 }
 
-const MAX_QUEUE_SIZE_TO_MINE_ON: usize = 4;	// because uncles go back 6.
-
-impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> Eth for EthClient<C, SN, S, M, EM> where
+impl<C, SN: ?Sized, S: ?Sized, M, T: StateInfo + 'static> Eth for EthClient<C, SN, S, M> where
 	C: miner::BlockChainClient + BlockChainClient + StateClient<State=T> + Call<State=T> + EngineInfo + 'static,
 	SN: SnapshotService + 'static,
 	S: SyncProvider + 'static,
-	M: MinerService<State=T> + 'static,
-	EM: ExternalMinerService + 'static,
+	M: MinerService<State=T> + 'static
 {
 	type Metadata = Metadata;
 
@@ -516,10 +500,6 @@ impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> Eth for EthClient<
 
 	fn chain_id(&self) -> Result<Option<RpcU64>> {
 		Ok(self.client.signing_chain_id().map(RpcU64::from))
-	}
-
-	fn hashrate(&self) -> Result<RpcU256> {
-		Ok(RpcU256::from(self.external_miner.hashrate()))
 	}
 
 	fn gas_price(&self) -> Result<RpcU256> {
@@ -736,73 +716,6 @@ impl<C, SN: ?Sized, S: ?Sized, M, EM, T: StateInfo + 'static> Eth for EthClient<
 		let logs = limit_logs(logs, filter.limit);
 
 		Box::new(future::ok(logs))
-	}
-
-	fn work(&self, no_new_work_timeout: Trailing<u64>) -> Result<Work> {
-		let no_new_work_timeout = no_new_work_timeout.unwrap_or_default();
-
-		// check if we're still syncing and return empty strings in that case
-		{
-			let sync_status = self.sync.status();
-			let queue_info = self.client.queue_info();
-			let total_queue_size = queue_info.total_queue_size();
-
-			if sync_status.is_snapshot_syncing() || total_queue_size > MAX_QUEUE_SIZE_TO_MINE_ON {
-				trace!(target: "miner", "Syncing. Cannot give any work.");
-				return Err(errors::no_work());
-			}
-
-			// Otherwise spin until our submitted block has been included.
-			let timeout = Instant::now() + Duration::from_millis(1000);
-			while Instant::now() < timeout && self.client.queue_info().total_queue_size() > 0 {
-				thread::sleep(Duration::from_millis(1));
-			}
-		}
-
-		if self.miner.authoring_params().author.is_zero() {
-			warn!(target: "miner", "Cannot give work package - no author is configured. Use --author to configure!");
-			return Err(errors::no_author())
-		}
-
-		let work = self.miner.work_package(&*self.client).ok_or_else(|| {
-			warn!(target: "miner", "Cannot give work package - engine seals internally.");
-			errors::no_work_required()
-		})?;
-
-		let (pow_hash, number, timestamp, difficulty) = work;
-		let target = ethash::difficulty_to_boundary(&difficulty);
-		let seed_hash = self.seed_compute.lock().hash_block_number(number);
-
-		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-		if no_new_work_timeout > 0 && timestamp + no_new_work_timeout < now {
-			Err(errors::no_new_work())
-		} else if self.options.send_block_number_in_get_work {
-			Ok(Work {
-				pow_hash: pow_hash.into(),
-				seed_hash: seed_hash.into(),
-				target: target.into(),
-				number: Some(number),
-			})
-		} else {
-			Ok(Work {
-				pow_hash: pow_hash.into(),
-				seed_hash: seed_hash.into(),
-				target: target.into(),
-				number: None
-			})
-		}
-	}
-
-	fn submit_work(&self, nonce: RpcH64, pow_hash: RpcH256, mix_hash: RpcH256) -> Result<bool> {
-		match helpers::submit_work_detail(&self.client, &self.miner, nonce, pow_hash, mix_hash) {
-			Ok(_)  => Ok(true),
-			Err(_) => Ok(false),
-		}
-	}
-
-	fn submit_hashrate(&self, rate: RpcU256, id: RpcH256) -> Result<bool> {
-		self.external_miner.submit_hashrate(rate.into(), id.into());
-		Ok(true)
 	}
 
 	fn send_raw_transaction(&self, raw: Bytes) -> Result<RpcH256> {

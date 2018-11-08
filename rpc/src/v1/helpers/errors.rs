@@ -31,10 +31,6 @@ use light::on_demand::error::{Error as OnDemandError, ErrorKind as OnDemandError
 mod codes {
 	// NOTE [ToDr] Codes from [-32099, -32000]
 	pub const UNSUPPORTED_REQUEST: i64 = -32000;
-	pub const NO_WORK: i64 = -32001;
-	pub const NO_AUTHOR: i64 = -32002;
-	pub const NO_NEW_WORK: i64 = -32003;
-	pub const NO_WORK_REQUIRED: i64 = -32004;
 	pub const CANNOT_SUBMIT_WORK: i64 = -32005;
 	pub const UNKNOWN_ERROR: i64 = -32009;
 	pub const TRANSACTION_ERROR: i64 = -32010;
@@ -162,38 +158,6 @@ pub fn exceptional() -> Error {
 	Error {
 		code: ErrorCode::ServerError(codes::EXCEPTION_ERROR),
 		message: "The execution failed due to an exception.".into(),
-		data: None,
-	}
-}
-
-pub fn no_work() -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::NO_WORK),
-		message: "Still syncing.".into(),
-		data: None,
-	}
-}
-
-pub fn no_new_work() -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::NO_NEW_WORK),
-		message: "Work has not changed.".into(),
-		data: None,
-	}
-}
-
-pub fn no_author() -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::NO_AUTHOR),
-		message: "Author not configured. Run Parity with --author to configure.".into(),
-		data: None,
-	}
-}
-
-pub fn no_work_required() -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::NO_WORK_REQUIRED),
-		message: "External work is only required for Proof of Work engines.".into(),
 		data: None,
 	}
 }

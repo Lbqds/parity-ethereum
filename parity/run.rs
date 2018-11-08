@@ -36,7 +36,6 @@ use hash_fetch::{self, fetch};
 use informant::{Informant, LightNodeInformantData, FullNodeInformantData};
 use journaldb::Algorithm;
 use light::Cache as LightDataCache;
-use miner::external::ExternalMiner;
 use node_filter::NodeFilter;
 use parity_runtime::Runtime;
 use parity_rpc::{Origin, Metadata, NetworkSettings, informant, is_major_importing};
@@ -609,9 +608,6 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 	// register it as an IO service to update periodically.
 	service.register_io_handler(store).map_err(|_| "Unable to register local store handler".to_owned())?;
 
-	// create external miner
-	let external_miner = Arc::new(ExternalMiner::default());
-
 	let mut attached_protos = Vec::new();
 
 	let whisper_factory = if cmd.whisper.enabled {
@@ -691,7 +687,6 @@ fn execute_impl<Cr, Rr>(cmd: RunCmd, logger: Arc<RotatingLogger>, on_client_rq: 
 		net: manage_network.clone(),
 		secret_store: secret_store,
 		miner: miner.clone(),
-		external_miner: external_miner.clone(),
 		logger: logger.clone(),
 		settings: Arc::new(cmd.net_settings.clone()),
 		net_service: manage_network.clone(),

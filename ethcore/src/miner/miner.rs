@@ -1078,21 +1078,6 @@ impl miner::MinerService for Miner {
 		self.sealing.lock().enabled
 	}
 
-	fn work_package<C>(&self, chain: &C) -> Option<(H256, BlockNumber, u64, U256)> where
-		C: BlockChain + CallContract + BlockProducer + SealedBlockImporter + Nonce + Sync,
-	{
-		if self.engine.seals_internally().is_some() {
-			return None;
-		}
-
-		self.prepare_pending_block(chain);
-
-		self.sealing.lock().queue.use_last_ref().map(|b| {
-			let header = b.header();
-			(header.hash(), header.number(), header.timestamp(), *header.difficulty())
-		})
-	}
-
 	// Note used for external submission (PoW) and internally by sealing engines.
 	fn submit_seal(&self, block_hash: H256, seal: Vec<Bytes>) -> Result<SealedBlock, Error> {
 		let result =
@@ -1241,39 +1226,6 @@ mod tests {
 	use miner::{MinerService, PendingOrdering};
 	use test_helpers::{generate_dummy_client, generate_dummy_client_with_spec_and_accounts};
 	use transaction::{Transaction};
-
-	#[test]
-	fn should_prepare_block_to_seal() {
-		// given
-		let client = TestBlockChainClient::default();
-		let miner = Miner::new_for_tests(&Spec::new_test(), None);
-
-		// when
-		let sealing_work = miner.work_package(&client);
-		assert!(sealing_work.is_some(), "Expected closed block");
-	}
-
-	#[test]
-	fn should_still_work_after_a_couple_of_blocks() {
-		// given
-		let client = TestBlockChainClient::default();
-		let miner = Miner::new_for_tests(&Spec::new_test(), None);
-
-		let res = miner.work_package(&client);
-		let hash = res.unwrap().0;
-		let block = miner.submit_seal(hash, vec![]).unwrap();
-		client.import_sealed_block(block).unwrap();
-
-		// two more blocks mined, work requested.
-		client.add_blocks(1, EachBlockWith::Uncle);
-		miner.work_package(&client);
-
-		client.add_blocks(1, EachBlockWith::Uncle);
-		miner.work_package(&client);
-
-		// solution to original work submitted.
-		assert!(miner.submit_seal(hash, vec![]).is_ok());
-	}
 
 	fn miner() -> Miner {
 		Miner::new(

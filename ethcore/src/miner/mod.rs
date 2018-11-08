@@ -72,12 +72,6 @@ pub trait MinerService : Send + Sync {
 	/// Is it currently sealing?
 	fn is_currently_sealing(&self) -> bool;
 
-	/// Get the sealing work package preparing it if doesn't exist yet.
-	///
-	/// Returns `None` if engine seals internally.
-	fn work_package<C>(&self, chain: &C) -> Option<(H256, BlockNumber, u64, U256)>
-		where C: BlockChain + CallContract + BlockProducer + SealedBlockImporter + Nonce + Sync;
-
 	/// Update current pending block
 	fn update_sealing<C>(&self, chain: &C)
 		where C: BlockChain + CallContract + BlockProducer + SealedBlockImporter + Nonce + Sync;

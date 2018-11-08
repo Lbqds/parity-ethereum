@@ -47,9 +47,8 @@ use v1::helpers::light_fetch::{self, LightFetch};
 use v1::traits::Eth;
 use v1::types::{
 	RichBlock, Block, BlockTransactions, BlockNumber, LightBlockNumber, Bytes, SyncStatus, SyncInfo,
-	Transaction, CallRequest, Index, Filter, Log, Receipt, Work,
-	H64 as RpcH64, H256 as RpcH256, H160 as RpcH160, U256 as RpcU256,
-	U64 as RpcU64,
+	Transaction, CallRequest, Index, Filter, Log, Receipt, H256 as RpcH256, H160 as RpcH160,
+	U256 as RpcU256, U64 as RpcU64
 };
 use v1::metadata::Metadata;
 
@@ -249,10 +248,6 @@ impl<T: LightChainClient + 'static> Eth for EthClient<T> {
 
 	fn chain_id(&self) -> Result<Option<RpcU64>> {
 		Ok(self.client.signing_chain_id().map(RpcU64::from))
-	}
-
-	fn hashrate(&self) -> Result<RpcU256> {
-		Ok(Default::default())
 	}
 
 	fn gas_price(&self) -> Result<RpcU256> {
@@ -499,18 +494,6 @@ impl<T: LightChainClient + 'static> Eth for EthClient<T> {
 				Ok(value) => value,
 				Err(err) => return Box::new(future::err(err)),
 			}).map(move |logs| limit_logs(logs, limit)))
-	}
-
-	fn work(&self, _timeout: Trailing<u64>) -> Result<Work> {
-		Err(errors::light_unimplemented(None))
-	}
-
-	fn submit_work(&self, _nonce: RpcH64, _pow_hash: RpcH256, _mix_hash: RpcH256) -> Result<bool> {
-		Err(errors::light_unimplemented(None))
-	}
-
-	fn submit_hashrate(&self, _rate: RpcU256, _id: RpcH256) -> Result<bool> {
-		Err(errors::light_unimplemented(None))
 	}
 }
 
