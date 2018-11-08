@@ -45,10 +45,10 @@ pub struct TendermintTimeouts {
 impl Default for TendermintTimeouts {
 	fn default() -> Self {
 		TendermintTimeouts {
-			propose: Duration::from_millis(1000),
-			prevote: Duration::from_millis(1000),
-			precommit: Duration::from_millis(1000),
-			commit: Duration::from_millis(1000),
+			propose: Duration::from_millis(3000),
+			prevote: Duration::from_millis(3000),
+			precommit: Duration::from_millis(3000),
+			commit: Duration::from_millis(3000),
 		}
 	}
 }

@@ -350,6 +350,14 @@ impl Tendermint {
 		message.vote_step.is_view(self.height.load(AtomicOrdering::SeqCst), self.view.load(AtomicOrdering::SeqCst))
 	}
 
+	fn current_vote_step(&self) -> VoteStep {
+		VoteStep {
+			height: self.height.load(AtomicOrdering::SeqCst),
+			view: self.view.load(AtomicOrdering::SeqCst),
+			step: *self.step.read(),
+		}
+	}
+
 	fn increment_view(&self, n: View) {
 		trace!(target: "engine", "increment_view: New view.");
 		self.view.fetch_add(n, AtomicOrdering::SeqCst);
@@ -474,7 +482,7 @@ impl Engine<EthereumMachine> for Tendermint {
 		let header = block.header();
 		let author = header.author();
 		// Only proposer can generate seal if None was generated.
-		if !self.is_signer_proposer(header.parent_hash()) || self.proposal.read().is_some() {
+		if !self.is_signer_proposer(header.parent_hash()) /*|| self.proposal.read().is_some()*/ {
 			return Seal::None;
 		}
 
@@ -718,7 +726,7 @@ impl Engine<EthereumMachine> for Tendermint {
 		}
 		let proposal = ConsensusMessage::new_proposal(header).expect("block went through full verification; this Engine verifies new_proposal creation; qed");
 		let proposer = proposal.verify().expect("block went through full verification; this Engine tries verify; qed");
-		debug!(target: "engine", "Received a new proposal {:?} from {}.", proposal.vote_step, proposer);
+		debug!(target: "engine", "Received a new proposal {:?} from {}, current step is {:?}", proposal.vote_step, proposer, self.current_vote_step());
 		if self.is_view(&proposal) {
 			*self.proposal.write() = proposal.block_hash.clone();
 			*self.proposal_parent.write() = header.parent_hash().clone();
